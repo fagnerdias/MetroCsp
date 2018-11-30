@@ -2,10 +2,44 @@
 -- chegada de trens na estação, abertura de portas para a entrada de pessoas
 
 
--- CB: Comando básico
-datatype CBTREM =  aproximar | chegar | parar | abrir | fechar | sair
+-- BC: basic comand
+datatype BC =  aproximar | chegar | parar | esperar |entrar | sair
+datatype BCDOOR = abrir | fechar
 
-channel	trem:CBTREM
+channel	trem:BC
+channel pessoa:BC
+channel porta:BCDOOR
+
+METROS = trem.aproximar -> trem.chegar -> trem.parar -> trem.sair -> METROS
+
+PESSOAS = pessoa.aproximar -> pessoa.chegar -> pessoa.esperar -> pessoa.entrar -> pessoa.sair -> PESSOAS
+
+PORTA = porta.abrir -> porta.fechar -> PORTA
+
+ALF_T = {| trem |}
+ALF_P = {| pessoa |}
+ALF_DOOR = {| porta |}
 
 
-METRO = trem.aproximar -> trem.chegar -> trem.parar -> trem.abrir -> trem.fechar -> trem.sair -> METRO
+ESTACAO  = trem.aproximar -> trem.chegar -> trem.parar -> (TREM_SAIR [] TREM_AGR)
+
+TREM_AGR = trem.esperar -> PORTA_EST
+
+PORTA_EST = porta.abrir ->( PORTA_EST [] porta.fechar -> TREM_SAIR)
+
+TREM_SAIR = trem.sair -> ESTACAO
+
+ALF_EST = {| trem, porta |}
+ALF_P_EST = {| pessoa, porta |}
+
+PESSOAS_EST = porta.abrir -> (PESSOA_IN [] PESSOA_OUT)
+
+PESSOA_IN = pessoa.entrar -> pessoa.esperar -> (porta.fechar -> PESSOA_ON [] pessoa.sair -> PESSOA_OUT)
+
+PESSOA_ON = pessoa.esperar -> (PESSOA_ON [] porta.abrir -> pessoa.sair -> PESSOA_OUT) 
+
+PESSOA_OUT = porta.fechar -> PESSOAS_EST
+
+-- fazer o paralelismo entre uma estação de trem e pessoas chegando
+ESTACAO2 = PESSOAS_EST [ALF_P_EST || ALF_EST] ESTACAO
+
