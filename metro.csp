@@ -1,0 +1,11 @@
+-- especificação de um sistema de estaão de metrô com chegada de trens e pessoas 
+-- chegada de trens na estação, abertura de portas para a entrada de pessoas
+
+
+-- CB: Comando básico
+datatype CBTREM =  aproximar | chegar | parar | abrir | fechar | sair
+
+channel	trem:CBTREM
+
+
+METRO = trem.aproximar -> trem.chegar -> trem.parar -> trem.abrir -> trem.fechar -> trem.sair -> METRO
