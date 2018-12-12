@@ -1,11 +1,16 @@
 -- especificação de um sistema de estaão de metrô com chegada de trens e pessoas 
 -- chegada de trens na estação, abertura de portas para a entrada de pessoas
 
+EST_ID = {0 .. 2}
+TREM_ID = {0 ..2}
+
 
 -- BC: basic comand
 datatype BC =  aproximar | chegar | parar | esperar |entrar | sair
 datatype BCDOOR = abrir | fechar
 
+
+channel estacao:TREM_ID.BC.EST_ID
 channel	trem:BC
 channel pessoa:BC
 channel porta:BCDOOR
@@ -25,7 +30,7 @@ ESTACAO  = trem.aproximar -> trem.chegar -> trem.parar -> (TREM_SAIR [] TREM_AGR
 
 TREM_AGR = trem.esperar -> PORTA_EST
 
-PORTA_EST = porta.abrir ->( PORTA_EST [] porta.fechar -> TREM_SAIR)
+PORTA_EST = porta.abrir ->( PORTA_EST [] porta.fechar -> TREM_SAIR )
 
 TREM_SAIR = trem.sair -> ESTACAO
 
@@ -45,12 +50,9 @@ ESTACAO2 = PESSOAS_EST [ALF_P_EST || ALF_EST] ESTACAO
 
 assert ESTACAO2 :[deadlock free]
 
+-- fazer varios trens e varias pessoas 
+-- i -> ID do trem, e -> ID da estação
+TRENS(i,e) = estacao.i.aproximar.e -> estacao.i.chegar.e -> estacao.i.parar.e -> estacao.i.sair.e ->(if(e == 2) then STOP
+																											else TRENS(i, e+1))
 
-
-channel estacao:{1 .. 3}
-channel qnt_trens:{1 .. 3}
-
-ESTACAO3(n) = if(n == 3)
-					then trem.aproximar -> STOP
-					else trem.aproximar -> estacao.n -> ESTACAO3(n + 1)
-EST = ESTACAO3(1)					
+TESTE = TRENS(1,1) ||| TRENS(2,1)
