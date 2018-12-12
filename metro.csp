@@ -3,6 +3,7 @@
 
 EST_ID = {0 .. 2}
 TREM_ID = {0 ..2}
+PEOPLE_QNT = {0 .. 10}
 
 
 -- BC: basic comand
@@ -11,6 +12,8 @@ datatype BCDOOR = abrir | fechar
 
 
 channel estacao:TREM_ID.BC.EST_ID
+channel people: PEOPLE_QNT.BC.EST_ID
+channel door:TREM_ID.BCDOOR.EST_ID
 channel	trem:BC
 channel pessoa:BC
 channel porta:BCDOOR
@@ -56,3 +59,42 @@ TRENS(i,e) = estacao.i.aproximar.e -> estacao.i.chegar.e -> estacao.i.parar.e ->
 																											else TRENS(i, e+1))
 
 TESTE = TRENS(1,1) ||| TRENS(2,1)
+
+PEOPLE(i, e) = people.i.aproximar?e:EST_ID -> people.i.chegar.e -> people.i.esperar.e -> people.i.entrar.e -> people.i.sair.e -> PEOPLE(i, e)
+
+--TESTE2 = PEOPLE(1) ||| PEOPLE(2) ||| PEOPLE(3) ||| PEOPLE(4) ||| PEOPLE(5)
+
+
+DOOR(i, e) = door.i.abrir.e -> door.i.fechar.e -> (if(e == 2) then STOP
+														else DOOR(i, e+1))
+
+TESTE3 = DOOR(1,1)
+
+SysTREM_DOOR(i,e) = estacao.i.aproximar.e -> estacao.i.chegar.e -> estacao.i.parar.e -> (SysTREM_Wait(i,e) [] SysTREM_LEAVE(i,e))
+
+SysTREM_Wait(i,e) = estacao.i.esperar.e -> DOOR_OPEN(i,e)
+
+DOOR_OPEN(i,e) = door.i.abrir.e -> (DOOR_OPEN(i,e) [] DOOR_CLOSE(i,e))
+
+DOOR_CLOSE(i,e) = door.i.fechar.e -> SysTREM_LEAVE(i,e)
+
+SysTREM_LEAVE(i,e) = estacao.i.sair.e -> (if(e == 2) then STOP
+											else SysTREM_DOOR(i, e+1))
+
+SysTESTE = SysTREM_DOOR(0,0)
+
+SysPEOPLE_DOOR(i,e, qnt) = door.i.abrir.e -> (PEOPLE_IN(i, e, qnt) [] CLOSE_DOOR(i,e, qnt))
+
+SysPEOPLE_DOOR2(i,e, qnt) = door.i.abrir.e -> (PEOPLE_IN(i, e, qnt) [] (CLOSE_DOOR(i,e, qnt) [] PEOPLE_LEAVE(i,e, qnt)))
+
+PEOPLE_IN(i,e, qnt) = people.i.entrar.e -> (PEOPLE_WAIT(i,e, qnt+1) [] (if(qnt == 0) then PEOPLE_LEAVE(i,e, 0)
+																				else PEOPLE_LEAVE(i,e,qnt-1)))
+
+PEOPLE_WAIT(i,e, qnt) = people.i.esperar.e -> (PEOPLE_WAIT(i,e, qnt) [] (CLOSE_DOOR(i,e, qnt) [] PEOPLE_LEAVE(i,e, qnt-1)))
+
+CLOSE_DOOR(i,e, qnt) = door.i.fechar.e -> (if(e == 2) then STOP
+										else (SysPEOPLE_DOOR2(i,e+1, qnt)))
+
+PEOPLE_LEAVE(i,e, qnt) = people.i.sair.e -> PEOPLE_WAIT(i,e, qnt)
+
+SysTESTE2 = SysPEOPLE_DOOR(0,0,0)
