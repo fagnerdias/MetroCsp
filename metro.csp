@@ -3,7 +3,7 @@
 
 EST_ID = {0 .. 2}
 TREM_ID = {0 ..2}
-PEOPLE_QNT = {0 .. 10}
+PEOPLE_ID = {0 .. 10}
 
 
 -- BC: basic comand
@@ -12,7 +12,7 @@ datatype BCDOOR = abrir | fechar
 
 
 channel estacao:TREM_ID.BC.EST_ID
-channel people: PEOPLE_QNT.BC.EST_ID
+channel people: PEOPLE_ID.BC.EST_ID
 channel door:TREM_ID.BCDOOR.EST_ID
 channel	trem:BC
 channel pessoa:BC
@@ -53,22 +53,27 @@ ESTACAO2 = PESSOAS_EST [ALF_P_EST || ALF_EST] ESTACAO
 
 assert ESTACAO2 :[deadlock free]
 
+----------------------------------------------------------------
+
 -- fazer varios trens e varias pessoas 
 -- i -> ID do trem, e -> ID da estação
 TRENS(i,e) = estacao.i.aproximar.e -> estacao.i.chegar.e -> estacao.i.parar.e -> estacao.i.sair.e ->(if(e == 2) then STOP
 																											else TRENS(i, e+1))
 
 TESTE = TRENS(1,1) ||| TRENS(2,1)
+---------------------------------------------------------------
 
-PEOPLE(i, e) = people.i.aproximar?e:EST_ID -> people.i.chegar.e -> people.i.esperar.e -> people.i.entrar.e -> people.i.sair.e -> PEOPLE(i, e)
-
+PEOPLE(i, e) = people.i.aproximar?e:EST_ID -> people.i.chegar.e -> people.i.esperar.e -> people.i.entrar.e -> people.i.sair.e -> STOP
 --TESTE2 = PEOPLE(1) ||| PEOPLE(2) ||| PEOPLE(3) ||| PEOPLE(4) ||| PEOPLE(5)
 
+---------------------------------------------------------------
 
 DOOR(i, e) = door.i.abrir.e -> door.i.fechar.e -> (if(e == 2) then STOP
 														else DOOR(i, e+1))
 
 TESTE3 = DOOR(1,1)
+
+------------------------------------------------------------
 
 SysTREM_DOOR(i,e) = estacao.i.aproximar.e -> estacao.i.chegar.e -> estacao.i.parar.e -> (SysTREM_Wait(i,e) [] SysTREM_LEAVE(i,e))
 
@@ -83,17 +88,45 @@ SysTREM_LEAVE(i,e) = estacao.i.sair.e -> (if(e == 2) then STOP
 
 SysTESTE = SysTREM_DOOR(0,0)
 
-SysPEOPLE_DOOR(i,e, qnt) = door.i.abrir.e -> (if(qnt > 0) then (PEOPLE_IN(i,e,qnt +1) [] (PEOPLE_LEAVE(i,e,qnt) [] CLOSE_DOOR(i,e,qnt)))
+-----------------------------------------------------------
+
+SysPEOPLE_DOOR(i,e, qnt) = door.i.abrir.e -> (if(qnt > 0) then (PEOPLE_IN(i,e,qnt +1) [] (PEOPLE_LEAVE(i,e,qnt-1) [] CLOSE_DOOR(i,e,qnt)))
 												else (PEOPLE_IN(i,e,qnt+1) [] CLOSE_DOOR(i,e,qnt)))
 
-PEOPLE_IN(i,e, qnt) = people.i.entrar.e ->  (PEOPLE_LEAVE(i,e,qnt) [] PEOPLE_WAIT(i,e,qnt))
+PEOPLE_IN(i,e, qnt) = people.i.entrar.e ->  (PEOPLE_LEAVE(i,e,qnt-1) [] PEOPLE_WAIT(i,e,qnt))
 
-PEOPLE_WAIT(i,e, qnt) = people.i.esperar.e -> (PEOPLE_WAIT(i,e, qnt) [] (CLOSE_DOOR(i,e, qnt) [] PEOPLE_LEAVE(i,e, qnt-1)))
+PEOPLE_WAIT(i,e, qnt) = people.i.esperar.e -> DOOR_WAIT(i,e,qnt)
+
+DOOR_WAIT(i,e,qnt) = ( if (qnt > 0) then PEOPLE_WAIT(i,e, qnt) [] (CLOSE_DOOR(i,e, qnt) [] (PEOPLE_LEAVE(i,e, qnt-1) [] PEOPLE_IN(i,e,qnt+1)))
+						else CLOSE_DOOR(i,e,qnt) [] PEOPLE_IN(i,e,qnt+1))
 
 CLOSE_DOOR(i,e, qnt) = door.i.fechar.e -> (if(e == 2) then STOP
 										else (SysPEOPLE_DOOR(i,e+1, qnt)))
 
-PEOPLE_LEAVE(i,e, qnt) = people.i.sair.e -> (if (qnt > 0 and e < 2) then (PEOPLE_LEAVE(i,e,qnt -1) [] (SysPEOPLE_DOOR(i,e,qnt))[] CLOSE_DOOR(i,e,qnt))
-												else (SysPEOPLE_DOOR(i,e,qnt) [] CLOSE_DOOR(i,e,qnt))) 
+PEOPLE_LEAVE(i,e, qnt) = people.i.sair.e -> (if (qnt > 0) then (PEOPLE_LEAVE(i,e,qnt -1) [] (SysPEOPLE_DOOR(i,e,qnt))[] CLOSE_DOOR(i,e,qnt))
+												else (DOOR_WAIT(i,e,qnt) )) 
 
 SysTESTE2 = SysPEOPLE_DOOR(0,0,0)
+
+assert SysTESTE2 :[deadlock free]
+
+---------------------------------------------------------
+
+SysPEOPLE_SUBWAY(i,e, qnt) = people.i.aproximar?e:EST_ID -> people.i.chegar.e ->  PEOPLE_SUB_WAIT(i,e, qnt+1)
+
+PEOPLE_SUB_WAIT(i,e, qnt) = (people.i.esperar.e ->(PEOPLE_SUB_OUT(i,e,qnt-1) [] PEOPLE_SUB_WAIT(i,e,qnt))) [] door.i.abrir.e -> PEOPLE_SUB_IN(i,e,qnt+1)
+
+--PEOPLE_SUB_OUT(i,e,qnt) = people.i.sair.e -> (if(qnt > 0) then people.i.sair.e -> PEOPLE_SUB_OUT(i,e,qnt-1) [] PEOPLE_SUB_IN(i,e,qnt+1)
+--							else door.i.abrir.e -> PEOPLE_SUB_IN(i,e,qnt+1))
+
+PEOPLE_SUB_OUT(i,e,qnt) = people.i.sair.e -> SKIP
+
+PEOPLE_SUB_IN(i,e,qnt) = people.i.entrar.e -> SKIP					
+
+SysTESTE3 = SysPEOPLE_SUBWAY(0,0,0)
+
+-------------------------------------------------------------
+
+SysDOOR_SUBWAY(i,e,qnt) = SysTESTE2 [| {|door.i.abrir.e, people.i.entrar.e, people.i.sair.e|} |] SysTESTE3						
+
+SysTESTE4 = SysDOOR_SUBWAY(0,0,0)
