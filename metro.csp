@@ -83,18 +83,17 @@ SysTREM_LEAVE(i,e) = estacao.i.sair.e -> (if(e == 2) then STOP
 
 SysTESTE = SysTREM_DOOR(0,0)
 
-SysPEOPLE_DOOR(i,e, qnt) = door.i.abrir.e -> (PEOPLE_IN(i, e, qnt) [] CLOSE_DOOR(i,e, qnt))
+SysPEOPLE_DOOR(i,e, qnt) = door.i.abrir.e -> (if(qnt > 0) then (PEOPLE_IN(i,e,qnt +1) [] (PEOPLE_LEAVE(i,e,qnt) [] CLOSE_DOOR(i,e,qnt)))
+												else (PEOPLE_IN(i,e,qnt+1) [] CLOSE_DOOR(i,e,qnt)))
 
-SysPEOPLE_DOOR2(i,e, qnt) = door.i.abrir.e -> (PEOPLE_IN(i, e, qnt) [] (CLOSE_DOOR(i,e, qnt) [] PEOPLE_LEAVE(i,e, qnt)))
-
-PEOPLE_IN(i,e, qnt) = people.i.entrar.e -> (PEOPLE_WAIT(i,e, qnt+1) [] (if(qnt == 0) then PEOPLE_LEAVE(i,e, 0)
-																				else PEOPLE_LEAVE(i,e,qnt-1)))
+PEOPLE_IN(i,e, qnt) = people.i.entrar.e ->  (PEOPLE_LEAVE(i,e,qnt) [] PEOPLE_WAIT(i,e,qnt))
 
 PEOPLE_WAIT(i,e, qnt) = people.i.esperar.e -> (PEOPLE_WAIT(i,e, qnt) [] (CLOSE_DOOR(i,e, qnt) [] PEOPLE_LEAVE(i,e, qnt-1)))
 
 CLOSE_DOOR(i,e, qnt) = door.i.fechar.e -> (if(e == 2) then STOP
-										else (SysPEOPLE_DOOR2(i,e+1, qnt)))
+										else (SysPEOPLE_DOOR(i,e+1, qnt)))
 
-PEOPLE_LEAVE(i,e, qnt) = people.i.sair.e -> PEOPLE_WAIT(i,e, qnt)
+PEOPLE_LEAVE(i,e, qnt) = people.i.sair.e -> (if (qnt > 0 and e < 2) then (PEOPLE_LEAVE(i,e,qnt -1) [] (SysPEOPLE_DOOR(i,e,qnt))[] CLOSE_DOOR(i,e,qnt))
+												else (SysPEOPLE_DOOR(i,e,qnt) [] CLOSE_DOOR(i,e,qnt))) 
 
 SysTESTE2 = SysPEOPLE_DOOR(0,0,0)
