@@ -90,58 +90,39 @@ SysTESTE = SysTREM_DOOR(0,0)
 
 assert SysTESTE :[deadlock free]
 
------------------------------------------------------------
+-------------------------------------------------------------
 
-SysPEOPLE_DOOR(i,e, qnt) = door.i.abrir.e -> (if(qnt > 0) then (PEOPLE_IN(i,e,qnt +1) [] (PEOPLE_LEAVE(i,e,qnt-1) [] CLOSE_DOOR(i,e,qnt)))
-												else (PEOPLE_IN(i,e,qnt+1) [] CLOSE_DOOR(i,e,qnt)))
+SysPEOPLE_SUBWAY(i,e, qnt_est, qnt_trem) = people.i.aproximar.e -> people.i.chegar.e ->  PEOPLE_SUB_WAIT(i,e, qnt_est+1, qnt_trem)
 
-PEOPLE_IN(i,e, qnt) = people.i.entrar.e ->  (PEOPLE_LEAVE(i,e,qnt-1) [] PEOPLE_WAIT(i,e,qnt))
+PEOPLE_SUB_WAIT(i,e, qnt_est, qnt_trem) = (people.i.esperar.e ->(PEOPLE_SUB_OUT(i,e,qnt_est-1, qnt_trem) [] PEOPLE_SUB_WAIT(i,e,qnt_est, qnt_trem))) [] SysPEOPLE_DOOR(i,e, qnt_est, qnt_trem)
 
-PEOPLE_WAIT(i,e, qnt) = people.i.esperar.e -> DOOR_WAIT(i,e,qnt)
+SysPEOPLE_DOOR(i,e, qnt_est, qnt_trem) = door.i.abrir.e -> (if(qnt_est > 0) then (PEOPLE_IN(i,e, qnt_est-1, qnt_trem +1) [] (PEOPLE_SUB_OUT(i,e,qnt_est-1, qnt_trem) [] CLOSE_DOOR(i,e,qnt_est, qnt_trem)))
+															else if (qnt_trem > 0) then (CLOSE_DOOR(i,e,qnt_est, qnt_trem) [] PEOPLE_LEAVE(i,e,qnt_est, qnt_trem-1) )
+															else CLOSE_DOOR(i,e,qnt_est, qnt_trem))
 
-DOOR_WAIT(i,e,qnt) = ( if (qnt > 0) then PEOPLE_WAIT(i,e, qnt) [] (CLOSE_DOOR(i,e, qnt) [] (PEOPLE_LEAVE(i,e, qnt-1) [] PEOPLE_IN(i,e,qnt+1)))
-						else CLOSE_DOOR(i,e,qnt) [] PEOPLE_IN(i,e,qnt+1))
+PEOPLE_IN(i,e, qnt_est, qnt_trem) = people.i.entrar.e ->  (PEOPLE_LEAVE(i,e,qnt_est,qnt_trem-1) [] PEOPLE_WAIT(i,e,qnt_est, qnt_trem))
 
-CLOSE_DOOR(i,e, qnt) = door.i.fechar.e -> (if(e == 2) then SysPEOPLE_DOOR(0,0,0)
-										else (SysPEOPLE_DOOR(i,e+1, qnt)))
+PEOPLE_WAIT(i,e, qnt_est, qnt_trem) = people.i.esperar.e -> DOOR_WAIT(i,e,qnt_est, qnt_trem)
 
-PEOPLE_LEAVE(i,e, qnt) = people.i.sair.e -> (if (qnt > 0) then (PEOPLE_LEAVE(i,e,qnt -1) [] (SysPEOPLE_DOOR(i,e,qnt))[] CLOSE_DOOR(i,e,qnt))
-												else (DOOR_WAIT(i,e,qnt) )) 
+DOOR_WAIT(i,e,qnt_est, qnt_trem) =  if (qnt_est > 0) then PEOPLE_WAIT(i,e, qnt_est, qnt_trem) [] (CLOSE_DOOR(i,e, qnt_est, qnt_trem) [] (PEOPLE_LEAVE(i,e,qnt_est, qnt_trem-1) [] PEOPLE_IN(i,e,qnt_est-1,qnt_trem+1))) 
+									else CLOSE_DOOR(i,e,qnt_est, qnt_trem)
 
-SysTESTE2 = SysPEOPLE_DOOR(0,0,0) 
+CLOSE_DOOR(i,e, qnt_est, qnt_trem) = door.i.fechar.e -> (if(e == 2) then SysPEOPLE_DOOR(0,0,0,0)
+										else (SysPEOPLE_DOOR(i,e+1, qnt_est, qnt_trem) ))
+
+PEOPLE_LEAVE(i,e, qnt_est, qnt_trem) = people.i.sair.e -> if (qnt_trem > 0) then (PEOPLE_LEAVE(i,e,qnt_est,qnt_trem -1) [] CLOSE_DOOR(i,e,qnt_est, qnt_trem))
+												else DOOR_WAIT(i,e,qnt_est, qnt_trem)  
+PEOPLE_SUB_OUT(i,e,qnt_est, qnt_trem) = people.i.sair.e -> SysPEOPLE_SUBWAY(0,0,0,0)												
+
+SysTESTE2 = SysPEOPLE_SUBWAY(0,0,0,0) 
 
 assert SysTESTE2 :[deadlock free]
 
----------------------------------------------------------
-
-SysPEOPLE_SUBWAY(i,e, qnt) = people.i.aproximar?e:EST_ID -> people.i.chegar.e ->  PEOPLE_SUB_WAIT(i,e, qnt+1)
-
-PEOPLE_SUB_WAIT(i,e, qnt) = (people.i.esperar.e ->(PEOPLE_SUB_OUT(i,e,qnt-1) [] PEOPLE_SUB_WAIT(i,e,qnt))) [] door.i.abrir.e -> PEOPLE_SUB_IN(i,e,qnt+1)
-
---PEOPLE_SUB_OUT(i,e,qnt) = people.i.sair.e -> (if(qnt > 0) then people.i.sair.e -> PEOPLE_SUB_OUT(i,e,qnt-1) [] PEOPLE_SUB_IN(i,e,qnt+1)
---							else door.i.abrir.e -> PEOPLE_SUB_IN(i,e,qnt+1))
-
-PEOPLE_SUB_OUT(i,e,qnt) = people.i.sair.e -> SysPEOPLE_SUBWAY(0,0,0)
-
-PEOPLE_SUB_IN(i,e,qnt) = people.i.entrar.e -> SysPEOPLE_SUBWAY(0,0,0)					
-
-SysTESTE3 = SysPEOPLE_SUBWAY(0,0,0)
-
-assert SysTESTE3 :[deadlock free]
-
 -------------------------------------------------------------
 
-SysDOOR_SUBWAY(i,e,qnt) = SysTESTE2 [| {|door.i.abrir.e, people.i.entrar.e, people.i.sair.e|} |] SysTESTE3 \ {people.i.aproximar.e, people.i.chegar.e, people.i.esperar.e, people.i.sair.e}					
+SysTREM_SUBWAY(i,e) = SysTESTE[| {|door.i.fechar.e|} |] SysTESTE2 
 
-SysTESTE4 = SysDOOR_SUBWAY(0,0,0)
-
-assert SysTESTE4 :[deadlock free]
-
--------------------------------------------------------------
-
-SysTREM_SUBWAY(i,e,qnt) = SysTESTE[| {|door.i.abrir, door.i.fechar.e|} |] SysTESTE4 \ {estacao.i.chegar.e, estacao.i.parar.e, estacao.i.sair.e, estacao.i.esperar.e, people.i.chegar.e, people.i.esperar.e}
-
-SysTESTE5 = SysTREM_SUBWAY(0,0,0)
+SysTESTE5 = SysTREM_SUBWAY(0,0)
 
 assert SysTESTE5 :[deadlock free]
 
@@ -149,14 +130,22 @@ assert SysTESTE5 :[deadlock free]
 
 -- ESPECIFICAÇÕES
 
-SPEC_DOOR_OPEN(i,e) = estacao.i.aproximar.e -> estacao.i.chegar.e -> estacao.i.parar.e -> estacao.i.esperar.e -> door.i.abrir.e -> SPEC_DOOR_OPEN(i,e)
+SPEC_DOOR_ALF= {|estacao, door|}
+
+SPEC_DOOR_OPEN(i,e) =  estacao.i.aproximar.e -> estacao.i.chegar.e -> estacao.i.parar.e -> estacao.i.esperar.e -> door.i.abrir.e -> door.i.fechar.e -> SPEC_DOOR_OPEN(i,e)
+
+RUN_ALF = {|people, estacao, door|}
 
 SysSPEC = SPEC_DOOR_OPEN(0,0)
 
-assert SysTESTE5 [T= SysSPEC
+SysSPEC_DOOR(i,e) = SysSPEC[ SPEC_DOOR_ALF || RUN_ALF] RUN(RUN_ALF)
+
+SysTESTE6 = SysSPEC_DOOR(0,0)
+
+assert SysTESTE5 [T= SysTESTE6
 
 ------------------------------------------------------------------
 
-SPEC_PEOPLE_DOOR(i,e) = 
+--SPEC_PEOPLE_DOOR(i,e) = 
 
 
