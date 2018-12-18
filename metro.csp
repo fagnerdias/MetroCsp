@@ -129,20 +129,28 @@ assert SysTESTE5 :[deadlock free]
 -----------------------------------------------------------------
 
 -- ESPECIFICAÇÕES
+-- especificar que a porta só pode abrir quando o trem parar e esperar.
+-- pessoas só podem entrar quando o trem estiver aguardando e a porta aberta.
+-- o trem só pode sair quando a porta fechar.
+-- pessoas só podem sair quando a porta estiver aberta.
 
-SPEC_DOOR_ALF= {|estacao, door|}
+--1º
 
-SPEC_DOOR_OPEN(i,e) =  estacao.i.aproximar.e -> estacao.i.chegar.e -> estacao.i.parar.e -> estacao.i.esperar.e -> door.i.abrir.e -> door.i.fechar.e -> SPEC_DOOR_OPEN(i,e)
+RUN_ALF(i,e) = {people.i.aproximar.e, people.i.chegar.e, people.i.esperar.e, people.i.esperar.e, estacao.i.aproximar.e, estacao.i.chegar.e}
 
-RUN_ALF = {|people, estacao, door|}
+RUN(A) = [] x:A @ x -> RUN(A) 
 
-SysSPEC = SPEC_DOOR_OPEN(0,0)
+ALF_SPEC_DOOR(i,e) = {estacao.i.parar.e, estacao.i.esperar.e, door.i.abrir.e, door.i.fechar.e, estacao.i.sair.e}
 
-SysSPEC_DOOR(i,e) = SysSPEC[ SPEC_DOOR_ALF || RUN_ALF] RUN(RUN_ALF)
+SPEC_DOOR_OPEN(i,e) = estacao.i.parar.e -> estacao.i.esperar.e -> door.i.abrir.e -> STOP
 
-SysTESTE6 = SysSPEC_DOOR(0,0)
+SPEC_DOOR_CLOSE(i,e) = door.i.abrir.e -> door.i.fechar.e -> estacao.i.sair.e -> STOP
 
-assert SysTESTE5 [T= SysTESTE6
+SPEC_PEOPLE_IN(i,e) = door.i.abrir.e -> people.i.entrar.e
+
+CONTROLE_TREM = SPEC_DOOR_OPEN(0,0)[ALF_SPEC_DOOR(0,0)||RUN_ALF(0,0)]RUN(RUN_ALF(0,0))
+
+assert SysTESTE5 [T= CONTROLE_TREM
 
 ------------------------------------------------------------------
 
